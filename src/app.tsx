@@ -1,30 +1,24 @@
-import { Select } from "antd";
+import { Checkbox, InputNumber, Select } from "antd";
 import ImageTransformer, { MimeType } from "js-image-lib";
-import { useEffect, useState } from "react";
+import debounce from "lodash-es/debounce";
+import { useCallback, useEffect, useState } from "react";
 
 import { formatBytes } from "./utils/format-bytes";
 import { hookImagePaste } from "./utils/paste-image";
 
 interface EditorSettings {
   quality: number;
+  width: number;
+  height: number;
 }
 
 export const App = () => {
   const [originalImage, setOriginalImage] = useState<File | null>(null);
   const [alteredImage, setAlteredImage] = useState<Blob | null>(null);
-  const [editorSettings, setEditorSettings] = useState<EditorSettings>({ quality: 92 });
+  const [editorSettings, setEditorSettings] = useState<EditorSettings>({ quality: 92, width: 0, height: 0 });
 
   useEffect(() => {
-    hookImagePaste(file => {
-      setOriginalImage(file);
-
-      const image = new Image();
-      image.onload = function (e) {
-        console.log(image.height, e);
-      };
-
-      image.src = URL.createObjectURL(file!);
-    });
+    hookImagePaste(file => setOriginalImage(file));
   }, []);
 
   useEffect(() => {
@@ -34,7 +28,25 @@ export const App = () => {
       .arrayBuffer()
       .then(arrBuff => new ImageTransformer(new Uint8Array(arrBuff)))
       .then(transformer => {
-        // transformer.resize(200);
+        setEditorSettings(settings => ({
+          height: transformer.height,
+          width: transformer.width,
+          quality: settings.quality,
+        }));
+      });
+  }, [originalImage]);
+
+  useEffect(() => {
+    if (!originalImage) return;
+
+    originalImage
+      .arrayBuffer()
+      .then(arrBuff => new ImageTransformer(new Uint8Array(arrBuff)))
+      .then(transformer => {
+        if (editorSettings.width && editorSettings.height) {
+          transformer.resize(editorSettings.width, editorSettings.height);
+        }
+
         transformer.outputOptions.quality = editorSettings.quality;
 
         setAlteredImage(new Blob([transformer.toBuffer(MimeType.JPEG)]));
@@ -48,11 +60,7 @@ export const App = () => {
         <DisplayImage image={originalImage} />
       </div>
 
-      <Editor
-        editorSettings={editorSettings}
-        originalImage={originalImage}
-        onEditorSettingsChanged={settings => (console.log(settings), setEditorSettings(settings))}
-      />
+      <Editor editorSettings={editorSettings} onEditorSettingsChanged={settings => setEditorSettings(settings)} />
 
       <div style={{ flex: "1" }}>
         <h2>Transformed Image</h2>
@@ -75,13 +83,40 @@ const DisplayImage = ({ image }: { image: File | Blob | null }) => {
 };
 
 interface EditorProperties {
-  originalImage: File | null;
   editorSettings: EditorSettings;
   onEditorSettingsChanged: (settings: EditorSettings) => void;
 }
 
-const Editor = ({ originalImage, editorSettings, onEditorSettingsChanged }: EditorProperties) => {
-  console.log(originalImage);
+const Editor = ({ editorSettings, onEditorSettingsChanged }: EditorProperties) => {
+  const [keetRatio, setKeepRatio] = useState<boolean>(true);
+
+  const updateHeightWidth = useCallback(
+    debounce(({ height, width }: { height?: number | null; width?: number | null }) => {
+      if (height) {
+        if (keetRatio)
+          onEditorSettingsChanged({
+            height,
+            width: Math.ceil((height / editorSettings.height) * editorSettings.width),
+            quality: editorSettings.quality,
+          });
+        if (!keetRatio)
+          onEditorSettingsChanged({ height, width: editorSettings.width, quality: editorSettings.quality });
+      }
+
+      if (width) {
+        if (keetRatio)
+          onEditorSettingsChanged({
+            height: Math.ceil((width / editorSettings.width) * editorSettings.height),
+            width,
+            quality: editorSettings.quality,
+          });
+        if (!keetRatio)
+          onEditorSettingsChanged({ height: editorSettings.height, width, quality: editorSettings.quality });
+      }
+    }, 300),
+    [editorSettings, keetRatio],
+  );
+
   return (
     <div style={{ width: 350 }}>
       <h2>Editor</h2>
@@ -96,10 +131,17 @@ const Editor = ({ originalImage, editorSettings, onEditorSettingsChanged }: Edit
           { label: 85, value: 85 },
           { label: 50, value: 50 },
         ]}
-        onChange={quality => onEditorSettingsChanged({ quality })}
+        onChange={quality =>
+          onEditorSettingsChanged({ quality, height: editorSettings.height, width: editorSettings.width })
+        }
       />
       <h3>Resize</h3>
-      Ratio: Height: Width: Keep Ratio: [x]
+      Height:{" "}
+      <InputNumber size="small" value={editorSettings.height} onChange={height => updateHeightWidth({ height })} />{" "}
+      Width: <InputNumber size="small" value={editorSettings.width} onChange={width => updateHeightWidth({ width })} />
+      <div>
+        Keep Ratio: <Checkbox checked={keetRatio} onChange={({ target }) => setKeepRatio(target.value)} />
+      </div>
     </div>
   );
 };
