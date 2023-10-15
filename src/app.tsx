@@ -1,7 +1,8 @@
 import { Checkbox, InputNumber, Select } from "antd";
 import ImageTransformer, { MimeType } from "js-image-lib";
+import { last } from "lodash-es";
 import debounce from "lodash-es/debounce";
-import { useCallback, useEffect, useState } from "react";
+import { DragEventHandler, useCallback, useEffect, useState } from "react";
 
 import { formatBytes } from "./utils/format-bytes";
 import { hookImagePaste } from "./utils/paste-image";
@@ -53,8 +54,20 @@ export const App = () => {
       });
   }, [editorSettings, originalImage]);
 
+  const onDragAndDrop: DragEventHandler<HTMLDivElement> = useCallback(e => {
+    if (e.dataTransfer.files) setOriginalImage(last(e.dataTransfer.files)!);
+
+    e.preventDefault();
+    return false;
+  }, []);
+
   return (
-    <div style={{ display: "flex" }}>
+    <div
+      style={{ display: "flex", height: "100%" }}
+      onDrop={onDragAndDrop}
+      onDragOver={onDragAndDrop}
+      onDragEnter={onDragAndDrop}
+    >
       <div style={{ flex: "1" }}>
         <h2>Original Image</h2>
         <DisplayImage image={originalImage} />
