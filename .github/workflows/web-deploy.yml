@@ -1,19 +1,23 @@
-name: website
-
 on: push
-
+name: Deploy website on push
 jobs:
-  publish:
+  web-deploy:
+    name: Deploy
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-      - name: install dependencies
-        run: yarn
-      - name: build
-        run: yarn build
-      - name: Deploy
-        uses: peaceiris/actions-gh-pages@v3
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v2
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./public
+          node-version: 18
+
+      - run: npm install
+      - run: npm run build
+
+      - name: push to ftp
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        with:
+          server: greegko.com
+          username: u584298536
+          password: ${{ secrets.HOSTINGER_FTP_PASSWORD }}
+          local-dir: ./public/
+          server-dir: ./compress-clipboard-image/
