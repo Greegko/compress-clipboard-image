@@ -80,7 +80,7 @@ export const App = () => {
 
         transformer.outputOptions.quality = editorSettings.quality;
 
-        setAlteredImage(new Blob([transformer.toBuffer(MimeType.JPEG)]));
+        setAlteredImage(new Blob([transformer.toBuffer(MimeType.JPEG)], { type: "image/jpeg" }));
       });
   }, [editorSettings, originalImage, cropSelection]);
 
@@ -138,7 +138,7 @@ const DisplayImage = ({
   return (
     <div>
       {overlaySize && (
-        <div style={{ position: "absolute", width: overlaySize[0], height: overlaySize[1], userSelect: "none" }}></div>
+        <div style={{ position: "absolute", width: overlaySize[0], height: overlaySize[1], userSelect: "none", pointerEvents: "none" }}></div>
       )}
       <img ref={imageRef} src={URL.createObjectURL(image)} style={{ maxHeight: "75vh" }} />
     </div>
