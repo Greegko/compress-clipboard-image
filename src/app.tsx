@@ -99,7 +99,7 @@ export const App = () => {
           <>
             <div>File Size: {formatBytes(originalImage.size)}</div>
             <Cropping setCropSelection={setCropSelection}>
-              <DisplayImage image={originalImage} setImageDisplayRatio={setImageDisplayRatio} />
+              <DisplayImage setOverlay={true} image={originalImage} setImageDisplayRatio={setImageDisplayRatio} />
             </Cropping>
           </>
         )}
@@ -118,9 +118,11 @@ export const App = () => {
 
 const DisplayImage = ({
   image,
+  setOverlay,
   setImageDisplayRatio,
 }: {
   image: File | Blob;
+  setOverlay?: boolean;
   setImageDisplayRatio?: (val: number) => void;
 }) => {
   const [overlaySize, setOverlaySize] = useState<[number, number] | null>();
@@ -137,7 +139,7 @@ const DisplayImage = ({
 
   return (
     <div>
-      {overlaySize && (
+      {setOverlay && overlaySize && (
         <div style={{ position: "absolute", width: overlaySize[0], height: overlaySize[1], userSelect: "none" }}></div>
       )}
       <img ref={imageRef} src={URL.createObjectURL(image)} style={{ maxHeight: "75vh" }} />
