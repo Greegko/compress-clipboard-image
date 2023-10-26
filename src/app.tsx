@@ -142,7 +142,7 @@ const DisplayImage = ({
       {setOverlay && overlaySize && (
         <div style={{ position: "absolute", width: overlaySize[0], height: overlaySize[1], userSelect: "none" }}></div>
       )}
-      <img ref={imageRef} src={URL.createObjectURL(image)} style={{ maxHeight: "75vh" }} />
+      <img ref={imageRef} src={URL.createObjectURL(image)} style={{ maxHeight: "75vh", maxWidth: "40vw" }} />
     </div>
   );
 };
