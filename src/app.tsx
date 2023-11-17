@@ -80,7 +80,7 @@ export const App = () => {
 
         transformer.outputOptions.quality = editorSettings.quality;
 
-        setAlteredImage(new Blob([transformer.toBuffer(MimeType.JPEG)]));
+        setAlteredImage(new Blob([transformer.toBuffer(MimeType.JPEG)], { type: "image/jpeg" }));
       });
   }, [editorSettings, originalImage, cropSelection]);
 
