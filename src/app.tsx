@@ -1,4 +1,4 @@
-import { Checkbox, InputNumber, Select } from "antd";
+import { Button, Checkbox, Input, InputNumber, Select } from "antd";
 import ImageTransformer, { MimeType } from "js-image-lib";
 import { last, once } from "lodash-es";
 import debounce from "lodash-es/debounce";
@@ -14,12 +14,18 @@ interface EditorSettings {
   isCropEnabled?: boolean;
 }
 
+interface ImageMetadata {
+  width: number;
+  height: number;
+}
+
 type CropSelection = [[number, number], [number, number]];
 
 export const App = () => {
   const [originalImage, setOriginalImage] = useState<File | null>(null);
+  const [originalImageMetadata, setOriginalImageMetadata] = useState<ImageMetadata | null>(null);
   const [alteredImage, setAlteredImage] = useState<Blob | null>(null);
-  const [editorSettings, setEditorSettings] = useState<EditorSettings>({ quality: 92, width: 0, height: 0 });
+  const [editorSettings, setEditorSettings] = useState<EditorSettings>({ quality: 50, width: 0, height: 0 });
   const [cropSelection, setCropSelection] = useState<CropSelection | null>();
   const [imageDisplayRatio, setImageDisplayRatio] = useState<number>(0);
 
@@ -32,11 +38,17 @@ export const App = () => {
     if (!cropSelection) return;
 
     const ratio = 1 / imageDisplayRatio;
+
+    const width = Math.round(cropSelection[1][0] * ratio);
+    const height = Math.round(cropSelection[1][1] * ratio);
+
     setEditorSettings(settings => ({
       ...settings,
-      width: Math.round(cropSelection![1][0] * ratio),
-      height: Math.round(cropSelection![1][1] * ratio),
+      width,
+      height,
     }));
+
+    setOriginalImageMetadata({ width, height });
   }, [cropSelection, imageDisplayRatio]);
 
   useEffect(() => {
@@ -47,11 +59,14 @@ export const App = () => {
       .arrayBuffer()
       .then(arrBuff => new ImageTransformer(new Uint8Array(arrBuff)))
       .then(transformer => {
+        const { height, width } = transformer;
         setEditorSettings(settings => ({
           ...settings,
-          height: transformer.height,
-          width: transformer.width,
+          height,
+          width,
         }));
+
+        setOriginalImageMetadata({ height, width });
       });
   }, [originalImage, cropSelection]);
 
@@ -95,9 +110,12 @@ export const App = () => {
     <div style={{ display: "flex", height: "100%" }} onDrop={onDragAndDrop} onDragOver={onDragAndDrop}>
       <div style={{ flex: "1" }}>
         <h2>Original Image</h2>
-        {originalImage && (
+        {originalImage && originalImageMetadata && (
           <>
-            <div>File Size: {formatBytes(originalImage.size)}</div>
+            <div>
+              File Size: {formatBytes(originalImage.size)} w: {originalImageMetadata.width}px h:
+              {originalImageMetadata.height}px
+            </div>
             <Cropping setCropSelection={setCropSelection}>
               <DisplayImage setOverlay={true} image={originalImage} setImageDisplayRatio={setImageDisplayRatio} />
             </Cropping>
@@ -105,7 +123,11 @@ export const App = () => {
         )}
       </div>
 
-      <Editor editorSettings={editorSettings} onEditorSettingsChanged={settings => setEditorSettings(settings)} />
+      <Editor
+        imageMetadata={originalImageMetadata}
+        editorSettings={editorSettings}
+        onEditorSettingsChanged={settings => setEditorSettings(settings)}
+      />
 
       <div style={{ flex: "1" }}>
         <h2>Transformed Image</h2>
@@ -149,10 +171,11 @@ const DisplayImage = ({
 
 interface EditorProperties {
   editorSettings: EditorSettings;
+  imageMetadata: ImageMetadata | null;
   onEditorSettingsChanged: (settings: EditorSettings) => void;
 }
 
-const Editor = ({ editorSettings, onEditorSettingsChanged }: EditorProperties) => {
+const Editor = ({ imageMetadata, editorSettings, onEditorSettingsChanged }: EditorProperties) => {
   const [keetRatio, setKeepRatio] = useState<boolean>(true);
 
   const updateHeightWidth = useCallback(
@@ -181,10 +204,31 @@ const Editor = ({ editorSettings, onEditorSettingsChanged }: EditorProperties) =
     [editorSettings, keetRatio],
   );
 
+  const setThumbnail = useCallback(
+    debounce(size => {
+      if (!imageMetadata) return;
+
+      setKeepRatio(true);
+      if (imageMetadata.height > imageMetadata.width) {
+        updateHeightWidth({ height: Math.min(size, imageMetadata.height) });
+      } else {
+        updateHeightWidth({ width: Math.min(size, imageMetadata.width) });
+      }
+    }),
+    [imageMetadata],
+  );
+
+  const reset = useCallback(() => {
+    if (!imageMetadata) return;
+
+    setKeepRatio(true);
+    updateHeightWidth({ width: imageMetadata.width, height: imageMetadata.height });
+  }, [imageMetadata]);
+
   return (
     <div style={{ width: 350 }}>
-      <h2>Editor</h2>
-      <h3>Convert</h3>
+      <h2>Manipulator settings</h2>
+      <h3>Optimalize</h3>
       Quality:{" "}
       <Select
         style={{ width: 120 }}
@@ -198,13 +242,19 @@ const Editor = ({ editorSettings, onEditorSettingsChanged }: EditorProperties) =
         onChange={quality => onEditorSettingsChanged({ ...editorSettings, quality })}
       />
       <h3>Resize</h3>
-      Width: <InputNumber
-        size="small"
-        value={editorSettings.width}
-        onChange={width => updateHeightWidth({ width })}
-      />{" "}
-      Height:{" "}
-      <InputNumber size="small" value={editorSettings.height} onChange={height => updateHeightWidth({ height })} />
+      <div>
+        <Button style={{ marginRight: "5px" }} onClick={reset}>
+          Original
+        </Button>
+        <Button onClick={() => setThumbnail(1024)}>Thumbnail (1024px)</Button>
+      </div>
+      <br />
+      <div>
+        Width:{" "}
+        <InputNumber size="small" value={editorSettings.width} onChange={width => updateHeightWidth({ width })} />{" "}
+        Height:{" "}
+        <InputNumber size="small" value={editorSettings.height} onChange={height => updateHeightWidth({ height })} />
+      </div>
       <div>
         Keep Ratio: <Checkbox checked={keetRatio} onChange={({ target }) => setKeepRatio(target.value)} />
       </div>
