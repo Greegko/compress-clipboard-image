@@ -1,8 +1,6 @@
-import { Button, Checkbox, Input, InputNumber, Select } from "antd";
 import ImageTransformer, { MimeType } from "js-image-lib";
-import { last, once } from "lodash-es";
-import debounce from "lodash-es/debounce";
-import { DragEventHandler, MouseEventHandler, createRef, useCallback, useEffect, useState } from "react";
+import { Show, createEffect, createSignal } from "solid-js";
+import { JSX } from "solid-js/jsx-runtime";
 
 import { formatBytes } from "./utils/format-bytes";
 import { hookImagePaste } from "./utils/paste-image";
@@ -22,25 +20,23 @@ interface ImageMetadata {
 type CropSelection = [[number, number], [number, number]];
 
 export const App = () => {
-  const [originalImage, setOriginalImage] = useState<File | null>(null);
-  const [originalImageMetadata, setOriginalImageMetadata] = useState<ImageMetadata | null>(null);
-  const [alteredImage, setAlteredImage] = useState<Blob | null>(null);
-  const [editorSettings, setEditorSettings] = useState<EditorSettings>({ quality: 50, width: 0, height: 0 });
-  const [cropSelection, setCropSelection] = useState<CropSelection | null>();
-  const [imageDisplayRatio, setImageDisplayRatio] = useState<number>(0);
+  const [originalImage, setOriginalImage] = createSignal<File | null>(null);
+  const [originalImageMetadata, setOriginalImageMetadata] = createSignal<ImageMetadata | null>(null);
+  const [alteredImage, setAlteredImage] = createSignal<Blob | null>(null);
+  const [editorSettings, setEditorSettings] = createSignal<EditorSettings>({ quality: 50, width: 0, height: 0 });
+  const [cropSelection, setCropSelection] = createSignal<CropSelection | null>();
+  const [imageDisplayRatio, setImageDisplayRatio] = createSignal<number>(0);
 
-  useEffect(() => {
-    hookImagePaste(file => setOriginalImage(file));
-  }, []);
+  createEffect(() => hookImagePaste(file => setOriginalImage(file)));
 
-  useEffect(() => {
-    if (!imageDisplayRatio) return;
-    if (!cropSelection) return;
+  createEffect(() => {
+    if (!imageDisplayRatio()) return;
+    if (!cropSelection()) return;
 
-    const ratio = 1 / imageDisplayRatio;
+    const ratio = 1 / imageDisplayRatio();
 
-    const width = Math.round(cropSelection[1][0] * ratio);
-    const height = Math.round(cropSelection[1][1] * ratio);
+    const width = Math.round(cropSelection()[1][0] * ratio);
+    const height = Math.round(cropSelection()[1][1] * ratio);
 
     setEditorSettings(settings => ({
       ...settings,
@@ -49,13 +45,13 @@ export const App = () => {
     }));
 
     setOriginalImageMetadata({ width, height });
-  }, [cropSelection, imageDisplayRatio]);
+  });
 
-  useEffect(() => {
-    if (!originalImage) return;
-    if (cropSelection) return;
+  createEffect(() => {
+    if (!originalImage()) return;
+    if (cropSelection()) return;
 
-    originalImage
+    originalImage()
       .arrayBuffer()
       .then(arrBuff => new ImageTransformer(new Uint8Array(arrBuff)))
       .then(transformer => {
@@ -68,19 +64,22 @@ export const App = () => {
 
         setOriginalImageMetadata({ height, width });
       });
-  }, [originalImage, cropSelection]);
+  });
 
-  useEffect(() => {
-    if (!originalImage) return;
+  createEffect(() => {
+    if (!originalImage()) return;
 
-    originalImage
+    const cropSelectionVal = cropSelection();
+    const editorSetting = editorSettings();
+
+    originalImage()
       .arrayBuffer()
       .then(arrBuff => new ImageTransformer(new Uint8Array(arrBuff)))
       .then(transformer => {
-        const displayRatio = 1 / imageDisplayRatio;
+        const displayRatio = 1 / imageDisplayRatio();
 
-        if (cropSelection) {
-          const [[x, y], [width, height]] = cropSelection;
+        if (cropSelectionVal) {
+          const [[x, y], [width, height]] = cropSelectionVal;
 
           const [newX, newWidth] = [x, width].map(x => x * displayRatio).map(Math.round);
           const [newY, newHeight] = [y, height].map(x => x * displayRatio).map(Math.round);
@@ -89,82 +88,102 @@ export const App = () => {
           transformer.crop(0, 0, newWidth, newHeight);
         }
 
-        if (editorSettings.width && editorSettings.height) {
-          transformer.resize(editorSettings.width, editorSettings.height);
+        if (editorSetting.width && editorSetting.height) {
+          transformer.resize(editorSetting.width, editorSetting.height);
         }
 
-        transformer.outputOptions.quality = editorSettings.quality;
+        transformer.outputOptions.quality = editorSetting.quality;
 
         setAlteredImage(new Blob([transformer.toBuffer(MimeType.JPEG)], { type: "image/jpeg" }));
       });
-  }, [editorSettings, originalImage, cropSelection]);
+  });
 
-  const onDragAndDrop: DragEventHandler<HTMLDivElement> = useCallback(e => {
-    if (last(e.dataTransfer.files)) setOriginalImage(last(e.dataTransfer.files)!);
-
+  const onDragAndDrop = (e: DragEvent) => {
     e.preventDefault();
+    if (e.dataTransfer.items) {
+      [...e.dataTransfer.items].forEach(item => {
+        setOriginalImage(item.getAsFile());
+      });
+    }
+
     return false;
-  }, []);
+  };
+
+  const onDragOver = (e: DragEvent) => {
+    e.preventDefault();
+  };
 
   return (
-    <div style={{ display: "flex", height: "100%" }} onDrop={onDragAndDrop} onDragOver={onDragAndDrop}>
+    <div style={{ display: "flex", height: "100%" }} onDrop={onDragAndDrop} onDragOver={onDragOver}>
       <div style={{ flex: "1" }}>
         <h2>Original Image</h2>
-        {originalImage && originalImageMetadata && (
-          <>
-            <div>
-              File Size: {formatBytes(originalImage.size)} w: {originalImageMetadata.width}px h:
-              {originalImageMetadata.height}px
-            </div>
-            <Cropping setCropSelection={setCropSelection}>
-              <DisplayImage setOverlay={true} image={originalImage} setImageDisplayRatio={setImageDisplayRatio} />
-            </Cropping>
-          </>
-        )}
+        <Show when={originalImage() && originalImageMetadata()}>
+          <div>
+            File Size: {formatBytes(originalImage().size)} w: {originalImageMetadata().width}px h:
+            {originalImageMetadata().height}px
+          </div>
+          <Cropping setCropSelection={setCropSelection}>
+            <DisplayImage setOverlay={true} image={originalImage()} setImageDisplayRatio={setImageDisplayRatio} />
+          </Cropping>
+        </Show>
       </div>
 
       <Editor
-        imageMetadata={originalImageMetadata}
-        editorSettings={editorSettings}
+        imageMetadata={originalImageMetadata()}
+        editorSettings={editorSettings()}
         onEditorSettingsChanged={settings => setEditorSettings(settings)}
       />
 
       <div style={{ flex: "1" }}>
         <h2>Transformed Image</h2>
-        {alteredImage && <div>File Size: {formatBytes(alteredImage.size)}</div>}
-        {alteredImage && <DisplayImage image={alteredImage} />}
+        <Show when={alteredImage()}>
+          <div>File Size: {formatBytes(alteredImage().size)}</div>
+          <DisplayImage image={alteredImage()} />
+        </Show>
       </div>
     </div>
   );
 };
 
-const DisplayImage = ({
-  image,
-  setOverlay,
-  setImageDisplayRatio,
-}: {
+interface DisplayImageProps {
   image: File | Blob;
   setOverlay?: boolean;
   setImageDisplayRatio?: (val: number) => void;
-}) => {
-  const [overlaySize, setOverlaySize] = useState<[number, number] | null>();
-  const imageRef = createRef<HTMLImageElement>();
+}
 
-  useEffect(() => {
-    if (!imageRef.current) return;
+const DisplayImage = (props: DisplayImageProps) => {
+  const [overlaySize, setOverlaySize] = createSignal<[number, number] | null>();
 
-    imageRef.current.onload = once(e => {
-      setImageDisplayRatio?.(e.target.width / e.target.naturalWidth);
+  let imageRef: HTMLImageElement;
+
+  createEffect(() => {
+    if (!imageRef) return;
+
+    imageRef.onload = (e: any) => {
+      props.setImageDisplayRatio?.(e.target.width / e.target.naturalWidth);
       setOverlaySize([e.target.width, e.target.height]);
-    });
-  }, [imageRef.current]);
+    };
+  });
 
   return (
     <div>
-      {setOverlay && overlaySize && (
-        <div style={{ position: "absolute", width: overlaySize[0], height: overlaySize[1], userSelect: "none" }}></div>
-      )}
-      <img ref={imageRef} src={URL.createObjectURL(image)} style={{ maxHeight: "75vh", maxWidth: "40vw" }} />
+      <Show when={props.setOverlay && overlaySize()} keyed>
+        {overlaySize => (
+          <div
+            style={{
+              position: "absolute",
+              width: overlaySize[0] + "px",
+              height: overlaySize[1] + "px",
+              "user-select": "none",
+            }}
+          ></div>
+        )}
+      </Show>
+      <img
+        ref={imageRef}
+        src={URL.createObjectURL(props.image)}
+        style={{ "max-height": "75vh", "max-width": "40vw" }}
+      />
     </div>
   );
 };
@@ -175,137 +194,148 @@ interface EditorProperties {
   onEditorSettingsChanged: (settings: EditorSettings) => void;
 }
 
-const Editor = ({ imageMetadata, editorSettings, onEditorSettingsChanged }: EditorProperties) => {
-  const [keetRatio, setKeepRatio] = useState<boolean>(true);
+const Editor = (props: EditorProperties) => {
+  const [keetRatio, setKeepRatio] = createSignal<boolean>(true);
 
-  const updateHeightWidth = useCallback(
-    debounce(({ height, width }: { height?: number | null; width?: number | null }) => {
-      if (height) {
-        if (keetRatio)
-          onEditorSettingsChanged({
-            ...editorSettings,
-            height,
-            width: Math.ceil((height / editorSettings.height) * editorSettings.width),
-          });
-        if (!keetRatio) onEditorSettingsChanged({ ...editorSettings, height });
-      }
+  const updateHeightWidth = ({ height, width }: { height?: number | null; width?: number | null }) => {
+    if (height) {
+      if (keetRatio())
+        props.onEditorSettingsChanged({
+          ...props.editorSettings,
+          height,
+          width: Math.ceil((height / props.editorSettings.height) * props.editorSettings.width),
+        });
+      if (!keetRatio()) props.onEditorSettingsChanged({ ...props.editorSettings, height });
+    }
 
-      if (width) {
-        if (keetRatio)
-          onEditorSettingsChanged({
-            ...editorSettings,
-            height: Math.ceil((width / editorSettings.width) * editorSettings.height),
-            width,
-            quality: editorSettings.quality,
-          });
-        if (!keetRatio) onEditorSettingsChanged({ ...editorSettings, width });
-      }
-    }, 300),
-    [editorSettings, keetRatio],
-  );
+    if (width) {
+      if (keetRatio())
+        props.onEditorSettingsChanged({
+          ...props.editorSettings,
+          height: Math.ceil((width / props.editorSettings.width) * props.editorSettings.height),
+          width,
+          quality: props.editorSettings.quality,
+        });
+      if (!keetRatio()) props.onEditorSettingsChanged({ ...props.editorSettings, width });
+    }
+  };
 
-  const setThumbnail = useCallback(
-    debounce(size => {
-      if (!imageMetadata) return;
-
-      setKeepRatio(true);
-      if (imageMetadata.height > imageMetadata.width) {
-        updateHeightWidth({ height: Math.min(size, imageMetadata.height) });
-      } else {
-        updateHeightWidth({ width: Math.min(size, imageMetadata.width) });
-      }
-    }),
-    [imageMetadata],
-  );
-
-  const reset = useCallback(() => {
-    if (!imageMetadata) return;
+  const setThumbnail = size => {
+    if (!props.imageMetadata) return;
 
     setKeepRatio(true);
-    updateHeightWidth({ width: imageMetadata.width, height: imageMetadata.height });
-  }, [imageMetadata]);
+    if (props.imageMetadata.height > props.imageMetadata.width) {
+      updateHeightWidth({ height: Math.min(size, props.imageMetadata.height) });
+    } else {
+      updateHeightWidth({ width: Math.min(size, props.imageMetadata.width) });
+    }
+  };
+
+  const reset = () => {
+    if (!props.imageMetadata) return;
+
+    setKeepRatio(true);
+    updateHeightWidth({ width: props.imageMetadata.width, height: props.imageMetadata.height });
+  };
 
   return (
-    <div style={{ width: 350 }}>
-      <h2>Manipulator settings</h2>
-      <h3>Optimalize</h3>
+    <div style={{ width: "350px" }}>
+      <div class="text-2xl my-2">Manipulator settings</div>
+      <div class="text-xl my-2">Optimalize</div>
       Quality:{" "}
-      <Select
-        style={{ width: 120 }}
-        value={editorSettings.quality}
-        options={[
-          { label: 100, value: 100 },
-          { label: 92, value: 92 },
-          { label: 85, value: 85 },
-          { label: 50, value: 50 },
-        ]}
-        onChange={quality => onEditorSettingsChanged({ ...editorSettings, quality })}
-      />
-      <h3>Resize</h3>
+      <select
+        class="py-1 px-2 border border-sky-50 rounded mr-2"
+        style={{ width: 120 + "px" }}
+        value={props.editorSettings.quality}
+        onChange={target =>
+          props.onEditorSettingsChanged({ ...props.editorSettings, quality: parseInt(target.target.value) })
+        }
+      >
+        <option value={100}>100</option>
+        <option value={92}>92</option>
+        <option value={85}>85</option>
+        <option value={50}>50</option>
+      </select>
+      <div class="text-xl my-2">Resize</div>
       <div>
-        <Button style={{ marginRight: "5px" }} onClick={reset}>
+        <button class="py-1 px-3 border border-sky-50 rounded mr-2" onClick={reset}>
           Original
-        </Button>
-        <Button onClick={() => setThumbnail(1024)}>Thumbnail (1024px)</Button>
+        </button>
+        <button class="py-1 px-3 border border-sky-50 rounded" onClick={() => setThumbnail(1024)}>
+          Thumbnail (1024px)
+        </button>
       </div>
-      <br />
-      <div>
+      <div class="mt-2">
         Width:{" "}
-        <InputNumber size="small" value={editorSettings.width} onChange={width => updateHeightWidth({ width })} />{" "}
+        <input
+          class="py-1 px-2 border border-sky-50 rounded mr-2 w-20"
+          type="number"
+          size="small"
+          value={props.editorSettings.width}
+          onChange={target => updateHeightWidth({ width: parseInt(target.target.value) })}
+        />{" "}
         Height:{" "}
-        <InputNumber size="small" value={editorSettings.height} onChange={height => updateHeightWidth({ height })} />
+        <input
+          class="py-1 px-2 border border-sky-50 rounded mr-2  w-20"
+          size="small"
+          type="number"
+          value={props.editorSettings.height}
+          onChange={target => updateHeightWidth({ height: parseInt(target.target.value) })}
+        />
       </div>
-      <div>
-        Keep Ratio: <Checkbox checked={keetRatio} onChange={({ target }) => setKeepRatio(target.value)} />
+      <div class="mt-2">
+        Keep Ratio:{" "}
+        <input
+          class="py-1 px-2 border border-sky-50 rounded mr-2"
+          type="checkbox"
+          checked={keetRatio()}
+          onChange={target => setKeepRatio(target.target.checked)}
+        />
       </div>
     </div>
   );
 };
 
-const Cropping = ({
-  children,
-  setCropSelection: setCropSelectionOutput,
-}: {
+interface CroppingProps {
   children: JSX.Element;
   setCropSelection: (area: CropSelection | null) => void;
-}) => {
-  const [cropSelection, setCropSelection] = useState<CropSelection | null>(null);
-  const [cropSelectionActive, setCropSelectionActive] = useState(false);
+}
 
-  const onCroppingStart: MouseEventHandler<HTMLSpanElement> = useCallback(e => {
+const Cropping = (props: CroppingProps) => {
+  const [cropSelection, setCropSelection] = createSignal<CropSelection | null>(null);
+  const [cropSelectionActive, setCropSelectionActive] = createSignal(false);
+
+  const onCroppingStart = e => {
     setCropSelectionActive(true);
 
     setCropSelection([
-      [e.nativeEvent.offsetX, e.nativeEvent.offsetY],
+      [e.offsetX, e.offsetY],
       [0, 0],
     ]);
-  }, []);
+  };
 
-  useEffect(() => {
-    if (!cropSelectionActive) setCropSelectionOutput(cropSelection);
-  }, [cropSelection, cropSelectionActive]);
+  createEffect(() => {
+    if (!cropSelectionActive()) props.setCropSelection(cropSelection());
+  });
 
-  const onCroppingMove: MouseEventHandler<HTMLSpanElement> = useCallback(
-    e => {
-      if (!cropSelectionActive) return;
+  const onCroppingMove = e => {
+    if (!cropSelectionActive()) return;
 
-      setCropSelection(area => {
-        if (!area) return null;
+    setCropSelection(area => {
+      if (!area) return null;
 
-        const [x, y] = area[0];
+      const [x, y] = area[0];
 
-        const [newWidth, newHeight] = [e.nativeEvent.offsetX - x, e.nativeEvent.offsetY - y];
+      const [newWidth, newHeight] = [e.offsetX - x, e.offsetY - y];
 
-        return [
-          [x, y],
-          [newWidth, newHeight],
-        ];
-      });
-    },
-    [cropSelectionActive],
-  );
+      return [
+        [x, y],
+        [newWidth, newHeight],
+      ];
+    });
+  };
 
-  const onCroppingDone: MouseEventHandler<HTMLSpanElement> = useCallback(() => {
+  const onCroppingDone = () => {
     setCropSelection(area => {
       if (!area) return null;
 
@@ -331,7 +361,7 @@ const Cropping = ({
     });
 
     setCropSelectionActive(false);
-  }, []);
+  };
 
   return (
     <div
@@ -340,23 +370,25 @@ const Cropping = ({
       onMouseMove={onCroppingMove}
       onMouseUp={onCroppingDone}
     >
-      {cropSelection && (
-        <div
-          className="crop-area"
-          style={{
-            position: "absolute",
-            left: cropSelection[0][0] + "px",
-            top: cropSelection[0][1] + "px",
-            width: Math.abs(cropSelection[1][0]) + "px",
-            height: Math.abs(cropSelection[1][1]) + "px",
-            transform: `translate(${cropSelection[1][0] < 0 ? "-100%" : "0%"}, ${
-              cropSelection[1][1] < 0 ? "-100%" : "0%"
-            })`,
-            border: "2px dashed black",
-          }}
-        ></div>
-      )}
-      {children}
+      <Show when={cropSelection()} keyed>
+        {cropSelection => (
+          <div
+            class="crop-area"
+            style={{
+              position: "absolute",
+              left: cropSelection[0][0] + "px",
+              top: cropSelection[0][1] + "px",
+              width: Math.abs(cropSelection[1][0]) + "px",
+              height: Math.abs(cropSelection[1][1]) + "px",
+              transform: `translate(${cropSelection[1][0] < 0 ? "-100%" : "0%"}, ${
+                cropSelection[1][1] < 0 ? "-100%" : "0%"
+              })`,
+              border: "2px dashed black",
+            }}
+          ></div>
+        )}
+      </Show>
+      {props.children}
     </div>
   );
 };

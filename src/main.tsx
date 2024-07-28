@@ -1,8 +1,7 @@
-import { createRoot } from "react-dom/client";
+import { render } from "solid-js/web";
 
 import { App } from "./app";
 
-const appNode = document.getElementById("app");
-const root = createRoot(appNode!);
+import "./main.css";
 
-root.render(<App></App>);
+render(() => <App />, document.getElementById("root")!);
