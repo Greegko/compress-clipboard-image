@@ -234,6 +234,9 @@ const Editor = (props: EditorProperties) => {
     }
   };
 
+  const isThumbnail = () =>
+    props.editorSettings && Math.max(props.editorSettings.height, props.editorSettings.width) === 1024;
+
   const reset = () => {
     if (!props.imageMetadata) return;
 
@@ -264,7 +267,11 @@ const Editor = (props: EditorProperties) => {
         <button class="py-1 px-3 border border-sky-50 rounded mr-2" onClick={reset}>
           Original
         </button>
-        <button class="py-1 px-3 border border-sky-50 rounded" onClick={() => setThumbnail(1024)}>
+        <button
+          class="py-1 px-3 border border-sky-50 rounded"
+          classList={{ "bg-sky-700": isThumbnail() }}
+          onClick={() => setThumbnail(1024)}
+        >
           Thumbnail (1024px)
         </button>
       </div>
