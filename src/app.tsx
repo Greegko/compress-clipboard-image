@@ -117,7 +117,10 @@ export const App = () => {
     <div style={{ display: "flex", height: "100%" }} onDrop={onDragAndDrop} onDragOver={onDragOver}>
       <div style={{ flex: "1" }}>
         <h2>Original Image</h2>
-        <Show when={originalImage() && originalImageMetadata()}>
+        <Show
+          when={originalImage() && originalImageMetadata()}
+          fallback={<div class="border m-4 p-4 border-dashed border-gray-600 text-2xl">Paste image or drop file!</div>}
+        >
           <div>
             File Size: {formatBytes(originalImage().size)} w: {originalImageMetadata().width}px h:
             {originalImageMetadata().height}px
