@@ -1,6 +1,5 @@
 import ImageTransformer, { MimeType } from "js-image-lib";
-import { Show, createEffect, createSignal } from "solid-js";
-import { JSX } from "solid-js/jsx-runtime";
+import { Show, createEffect, createSignal, JSX } from "solid-js";
 
 import { formatBytes } from "./utils/format-bytes";
 import { hookImagePaste } from "./utils/paste-image";
@@ -114,12 +113,19 @@ export const App = () => {
   };
 
   return (
-    <div style={{ display: "flex", height: "100%" }} onDrop={onDragAndDrop} onDragOver={onDragOver}>
-      <div style={{ flex: "1" }}>
-        <h2>Original Image</h2>
+    <div class="flex h-full text-white">
+      <div class="flex-1 flex flex-col m-4">
         <Show
           when={originalImage() && originalImageMetadata()}
-          fallback={<div class="border m-4 p-4 border-dashed border-gray-600 text-2xl">Paste image or drop file!</div>}
+          fallback={
+            <div
+              class="h-full flex-1 border p-4 border-dashed border-gray-600 text-2xl"
+              onDrop={onDragAndDrop}
+              onDragOver={onDragOver}
+            >
+              Paste image or drop file!
+            </div>
+          }
         >
           <div>
             File Size: {formatBytes(originalImage().size)} w: {originalImageMetadata().width}px h:
@@ -131,13 +137,20 @@ export const App = () => {
         </Show>
       </div>
 
-      <Editor
-        imageMetadata={originalImageMetadata()}
-        editorSettings={editorSettings()}
-        onEditorSettingsChanged={settings => setEditorSettings(settings)}
-      />
+      <div>
+        <Editor
+          imageMetadata={originalImageMetadata()}
+          editorSettings={editorSettings()}
+          onEditorSettingsChanged={settings => setEditorSettings(settings)}
+        />
 
-      <div style={{ flex: "1" }}>
+        <div>
+          <div class="text-2xl my-3">Quick Converter</div>
+          <div class="h-[125px] w-[125px] border-dashed border border-gray-100 p-4 text-xl">1024px thumbnail, 50%</div>
+        </div>
+      </div>
+
+      <div class="flex-1">
         <h2>Transformed Image</h2>
         <Show when={alteredImage()}>
           <div>File Size: {formatBytes(alteredImage().size)}</div>
