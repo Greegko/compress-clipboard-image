@@ -26,4 +26,4 @@ jobs:
           username: u584298536
           password: ${{ secrets.HOSTINGER_FTP_PASSWORD }}
           local-dir: ./dist/
-          server-dir: ./compress-clipboard-image/
+          server-dir: ./subdomains/compress-clipboard-image/
