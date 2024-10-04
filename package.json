@@ -4,8 +4,10 @@
   "type": "module",
   "description": "",
   "scripts": {
-    "start": "vite",
-    "build": "tsc && vite build"
+    "start": "pnpm run '/serve|type-check/'",
+    "serve": "vite",
+    "type-check": "tsc --watch --preserveWatchOutput",
+    "build": "vite build"
   },
   "author": "",
   "license": "ISC",
