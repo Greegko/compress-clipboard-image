@@ -1,28 +1,82 @@
 import { JSX, Show, createEffect, createSignal } from "solid-js";
 
-import { formatBytes } from "../utils/format-bytes";
 import {
+  ConvertConfig,
   CropSelection,
   Dimensions,
-  EditorSettings,
-  ImageMetadata,
   calculateThumbnail,
+  convertImage,
+  getFileDimensions,
   resizeDimension,
-  useImageTransform,
-} from "../utils/image-transform";
+} from "../utils/convert-image";
+import { formatBytes } from "../utils/format-bytes";
 import { useImagePaste } from "../utils/paste-image";
 
+interface ImageMetadata {
+  width: number;
+  height: number;
+}
+
+interface EditorSettings {
+  quality: number;
+  width: number;
+  height: number;
+  isCropEnabled?: boolean;
+}
+
 export const EditorPage = () => {
-  const {
-    setCropSelection,
-    alteredImage,
-    setOriginalImage,
-    editorSettings,
-    originalImage,
-    originalImageMetadata,
-    setEditorSettings,
-    setImageDisplayRatio,
-  } = useImageTransform();
+  const [originalImage, setOriginalImage] = createSignal<File | null>(null);
+  const [originalImageMetadata, setOriginalImageMetadata] = createSignal<ImageMetadata | null>(null);
+  const [alteredImage, setAlteredImage] = createSignal<Blob | null>(null);
+  const [editorSettings, setEditorSettings] = createSignal<EditorSettings>({ quality: 50, width: 0, height: 0 });
+  const [cropSelection, setCropSelection] = createSignal<CropSelection | null>();
+  const [imageDisplayRatio, setImageDisplayRatio] = createSignal<number>(0);
+
+  createEffect(() => {
+    if (!imageDisplayRatio()) return;
+    if (!cropSelection()) return;
+
+    const ratio = 1 / imageDisplayRatio();
+
+    const width = Math.round(cropSelection()[1][0] * ratio);
+    const height = Math.round(cropSelection()[1][1] * ratio);
+
+    setEditorSettings(settings => ({
+      ...settings,
+      width,
+      height,
+    }));
+
+    setOriginalImageMetadata({ width, height });
+  });
+
+  createEffect(async () => {
+    if (!originalImage()) return;
+    if (cropSelection()) return;
+
+    const { height, width } = await getFileDimensions(originalImage());
+
+    setEditorSettings(settings => ({
+      ...settings,
+      height,
+      width,
+    }));
+
+    setOriginalImageMetadata({ height, width });
+  });
+
+  createEffect(async () => {
+    if (!originalImage()) return;
+
+    const editorSettingsVal = editorSettings();
+    const image = originalImage();
+    const cropSelectionVal = cropSelection();
+    const imageRatio = 1 / imageDisplayRatio();
+
+    const config = { ...editorSettingsVal, crop: cropSelectionVal, displayRatio: imageRatio } as ConvertConfig;
+
+    convertImage(image, config).then(x => setAlteredImage(x));
+  });
 
   const onDragAndDrop = (e: DragEvent) => {
     e.preventDefault();
