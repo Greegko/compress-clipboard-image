@@ -10,15 +10,16 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@trivago/prettier-plugin-sort-imports": "4.3.0",
     "js-image-lib": "1.0.1",
-    "prettier": "3.3.3",
     "remeda": "2.6.0",
     "solid-js": "1.8.19",
-    "typescript": "5.5.4",
     "vite": "5.3.5",
     "vite-plugin-solid": "2.10.2",
-    "postcss": "8.4.35",
     "tailwindcss": "3.4.1"
+  },
+  "devDependencies": {
+    "@trivago/prettier-plugin-sort-imports": "4.3.0",
+    "prettier": "3.3.3",
+    "typescript": "5.5.4"
   }
 }
