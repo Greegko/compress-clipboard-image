@@ -1,4 +1,4 @@
-export function hookImagePaste(cb: (file: File | null) => void) {
+export function useImagePaste(cb: (file: File | null) => void) {
   const pasteFn = (evt: ClipboardEvent) => {
     const clipboardItems = evt.clipboardData!.items;
     const items = [...clipboardItems].filter(item => item.type.includes("image"));
