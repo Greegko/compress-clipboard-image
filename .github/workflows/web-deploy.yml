@@ -22,8 +22,8 @@ jobs:
       - name: push to ftp
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
-          server: greegko.com
-          username: u584298536
+          server: ${{ secrets.HOSTINGER_FTP_SERVER }}
+          username: ${{ secrets.HOSTINGER_FTP_USERNAME }}
           password: ${{ secrets.HOSTINGER_FTP_PASSWORD }}
           local-dir: ./dist/
           server-dir: ./subdomains/compress-clipboard-image/
